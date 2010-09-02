@@ -1,0 +1,9 @@
+/bin
+/build
+/.classpath
+/.project
+/target
+/lib/.jruby
+/web/WEB-INF/classes
+/.metadata
+/.settings

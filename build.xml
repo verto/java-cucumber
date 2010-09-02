@@ -1,0 +1,134 @@
+<project name="meuprojeto build" default="acceptance-test" basedir=".">
+
+	<!-- local onde devera ficar o jruby. -->
+	<property name="jruby.home" value="${basedir}/lib/.jruby" />
+
+	<!-- prepara as pastas do build -->
+	<target name="-prepare" description="--> prepares directories" unless="nocompile">
+		<mkdir dir="target/test-classes" />
+		<mkdir dir="src/main/webapp/WEB-INF/classes" />
+		<mkdir dir="target/task-classes" />
+	</target>
+
+	<!-- define todos os paths necessarios para o build do projeto -->
+	<target name="-define-paths">
+
+		<path id="jruby.classpath">
+			<fileset dir="lib">
+				<include name="**/*.jar" />
+			</fileset>
+		</path>
+
+		<path id="libs.classpath" path=".">
+			<fileset dir="WebContent/WEB-INF/lib">
+				<include name="*.jar" />
+			</fileset>
+		</path>
+
+		<path id="test.libs.classpath" path=".">
+			<fileset dir="lib/test">
+				<include name="*.jar" />
+			</fileset>
+		</path>
+		<path id="servlet-api.classpath">
+			<fileset dir="lib/commons">
+				<include name="*.jar" />
+			</fileset>
+		</path>
+
+		<path id="compile.classpath">
+			<path refid="servlet-api.classpath" />
+			<path refid="libs.classpath" />
+		</path>
+
+		<path id="tests.classpath">
+			<pathelement path="src/main/webapp/WEB-INF/classes" />
+			<path refid="test.libs.classpath" />
+			<fileset dir="lib/commons">
+				<include name="*.jar" />
+			</fileset>
+			<path refid="compile.classpath" />
+		</path>
+
+		<path id="acceptance-test.classpath">
+			<path refid="tests.classpath" />
+			<pathelement path="target/test-classes" />
+		</path>
+
+	</target>
+
+	<!-- compila as classes -->
+	<target name="compile" depends="-prepare, -define-paths" description="--> compiles the classes">
+		<javac destdir="WebContent/WEB-INF/classes" srcdir="src/main/java" classpathref="compile.classpath" debug="true" encoding="UTF-8" />
+		<javac destdir="target/test-classes" srcdir="src/test/integration" classpathref="acceptance-test.classpath" debug="true" encoding="UTF-8" />
+		<copy todir="target/test-classes">
+			<fileset dir="src/test/resources" />
+		</copy>
+		<javac destdir="target/task-classes" srcdir="src/main/task" classpathref="tests.classpath" debug="true" encoding="UTF-8" />
+	</target>
+
+	<!-- executa os testes de aceitacao  -->
+	<target name="acceptance-test" depends="compile,-install-gems, start-jettys" description="Run Cucumber">
+		<mkdir dir="target/junit-report" />
+		<taskdef name="cucumber" classname="cuke4duke.ant.CucumberTask" classpathref="acceptance-test.classpath" />
+		<cucumber args="--require target/test-classes --format pretty -f junit --out target/junit-report features" objectFactory="pico">
+			<classpath>
+				<path refid="acceptance-test.classpath"/>
+			</classpath>
+		</cucumber>
+	</target>
+
+	<!-- instala as gems necessarias para rodar os testes de aceitacao pelo cucumber. -->
+	<target name="-install-gems" depends="-define-paths" if="gems">
+		<mkdir dir="${basedir}/lib/.jruby" />
+		<taskdef name="gem" classname="cuke4duke.ant.GemTask" classpathref="tests.classpath" />
+		<gem args="install cuke4duke --version 0.3.2 --source http://gemcutter.org/" />
+	</target>
+
+	<!-- remove a pasta gerada os builds -->
+	<target name="clean" description="Delete all generated artifacts">
+		<delete dir="${basedir}/target" />
+		<delete includeemptydirs="true" failonerror="false">
+			<fileset dir="${basedir}/src/main/webapp/WEB-INF/classes" includes="**/*"/>
+		</delete>
+	</target>
+
+	<!-- remove as dependencias baixadas pelo install -gems -->
+	<target name="clean-deps" description="Delete all dependencies">
+		<delete dir="${basedir}/lib/.jruby" />
+	</target>
+
+	<!-- configuracao para levantar o webcontainer -->
+	<target name="jetty" depends="compile, start-jettys">
+		<input message="Press Enter to Stop" />
+	</target>
+	<macrodef name="jetty">
+		<attribute name="port" default="8080" />
+		<attribute name="databasePort" default="9005" />
+
+		<sequential>
+			<taskdef name="jetty-start" classname="com.couggi.task.JettyStartTask">
+				<classpath>
+					<path refid="servlet-api.classpath" />
+					<fileset dir="lib/commons">
+						<include name="jetty*.jar" />
+					</fileset>
+					<pathelement path="target/task-classes" />
+				</classpath>
+			</taskdef>
+			<jetty-start waitForShutdown="false" port="@{port}" databasePort="@{databasePort}">
+				<context classes="WebContent/WEB-INF/classes" context="/projeto"></context>
+				<resources>
+					<path value="WebContent"></path>
+				</resources>
+			</jetty-start>
+		</sequential>
+	</macrodef>
+	<target name="start-jettys" description="--> runs all jettys instances">
+		<jetty port="8080" databasePort="9005" />
+		<echo message="Jettys started" />
+	</target>
+
+
+</project>
+
