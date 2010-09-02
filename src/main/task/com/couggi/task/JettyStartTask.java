@@ -15,6 +15,9 @@ import org.mortbay.jetty.handler.HandlerCollection;
 import org.mortbay.jetty.webapp.WebAppContext;
 import org.mortbay.resource.ResourceCollection;
 
+/**
+ * Start task baseada na task criada para o projeto http://github.com/caelum/calopsita
+ */
 public class JettyStartTask extends Task {
 
 	static final int SHUTDOWN = 1;
